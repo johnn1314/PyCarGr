@@ -4,7 +4,7 @@
 __author__ = 'Florents Tselai'
 
 import csv
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 from flask import Flask, jsonify, request, send_file
 
@@ -13,7 +13,7 @@ from pycargr.parser import parse_car_page, parse_search_results
 from pycargr.model import to_dict
 
 app = Flask(__name__)
-app.config['JSON_AS_ASCII'] = False
+app.json.ensure_ascii = False
 
 
 @app.route("/api/car/<car>", methods=["GET"])
@@ -54,4 +54,4 @@ def search():
 
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=8080, debug=True)
