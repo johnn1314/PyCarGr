@@ -105,6 +105,12 @@ class CarItemParser:
         try:
             return float(self._ld_data['offers']['priceSpecification']['price'])
         except Exception:
+            pass
+        try:
+            span = self.soup.find('span', class_='price-text')
+            raw = span.text.strip().replace('.', '').replace('€', '').replace('\xa0', '').strip()
+            return float(raw)
+        except Exception:
             return None
 
     def parse_release_date(self):
@@ -198,7 +204,6 @@ class CarItemParser:
         c.postal_code = self.parse_postal_code()
         c.transmission = self.parse_transmission()
         c.images = self.parse_images()
-        c.html = self.html
         c.scraped_at = datetime.now().isoformat()
         return c
 
