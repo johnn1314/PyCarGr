@@ -23,13 +23,13 @@ def get_car(car):
 
 @app.route("/api/search", methods=["GET"])
 def search():
-    request_args = request.args.to_dict()
+    request_args = request.args.to_dict(flat=False)
 
     # check if format is specified and remove it
-    export_format = request_args.pop('format', 'json')
+    export_format = request_args.pop('format', ['json'])[0]
 
-    # pass the rest as search params
-    search_url = SEARCH_BASE_URL + '?' + urlencode(request_args)
+    # pass the rest as search params (handles duplicate keys like make=x&make=y)
+    search_url = SEARCH_BASE_URL + '?' + urlencode(request_args, doseq=True)
 
     results = parse_search_results(search_url)
 
