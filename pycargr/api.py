@@ -7,7 +7,7 @@ import csv
 from sqlite3 import connect
 from urllib.parse import urlencode
 
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, render_template
 
 from pycargr import SEARCH_BASE_URL, init_db, save_car, DB_PATH
 from pycargr.parser import parse_car_page, parse_search_results
@@ -17,6 +17,11 @@ app = Flask(__name__)
 app.json.ensure_ascii = False
 
 init_db()
+
+
+@app.route("/")
+def dashboard():
+    return render_template('dashboard.html')
 
 
 @app.route("/api/car/<car>", methods=["GET"])

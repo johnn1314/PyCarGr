@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>PyCarGr Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, sans-serif; background: #f0f2f5; color: #222; }
+
+    header { background: #1a1a2e; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 1.3rem; }
+    header span { background: #e94560; color: white; border-radius: 12px; padding: 2px 10px; font-size: 0.8rem; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+    /* Filters */
+    .filters { background: white; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .filter-group { display: flex; flex-direction: column; gap: 4px; }
+    .filter-group label { font-size: 0.75rem; color: #666; font-weight: 600; text-transform: uppercase; }
+    .filter-group input, .filter-group select { border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px; font-size: 0.9rem; outline: none; }
+    .filter-group input:focus, .filter-group select:focus { border-color: #1a1a2e; }
+    .btn-reset { background: #f0f2f5; border: 1px solid #ddd; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.9rem; }
+    .btn-reset:hover { background: #e0e2e5; }
+
+    /* Charts */
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .chart-card { background: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .chart-card h3 { font-size: 0.9rem; color: #666; margin-bottom: 12px; }
+
+    /* Table */
+    .table-card { background: white; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid #f0f2f5; display: flex; justify-content: space-between; align-items: center; }
+    .table-header h3 { font-size: 1rem; }
+    .table-header small { color: #888; font-size: 0.85rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f8f9fa; padding: 10px 14px; text-align: left; font-size: 0.8rem; color: #555; text-transform: uppercase; cursor: pointer; user-select: none; white-space: nowrap; }
+    th:hover { background: #eee; }
+    th.sorted-asc::after { content: ' ↑'; }
+    th.sorted-desc::after { content: ' ↓'; }
+    td { padding: 10px 14px; border-top: 1px solid #f0f2f5; font-size: 0.88rem; vertical-align: middle; }
+    tr:hover td { background: #fafbff; }
+
+    .score-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 0.8rem; }
+    .score-high { background: #d4edda; color: #155724; }
+    .score-mid  { background: #fff3cd; color: #856404; }
+    .score-low  { background: #f8d7da; color: #721c24; }
+
+    .link-btn { display: inline-block; background: #1a1a2e; color: white; padding: 4px 10px; border-radius: 5px; text-decoration: none; font-size: 0.78rem; white-space: nowrap; }
+    .link-btn:hover { background: #e94560; }
+
+    .null-val { color: #bbb; font-style: italic; }
+    .price { font-weight: 700; color: #1a1a2e; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>PyCarGr Dashboard</h1>
+  <span id="total-badge">...</span>
+</header>
+
+<div class="container">
+
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group">
+      <label>Αναζήτηση</label>
+      <input type="text" id="f-search" placeholder="μοντέλο, πόλη..." style="width:180px">
+    </div>
+    <div class="filter-group">
+      <label>Τιμή έως (€)</label>
+      <input type="number" id="f-price-max" placeholder="π.χ. 15000" style="width:120px">
+    </div>
+    <div class="filter-group">
+      <label>Km έως</label>
+      <input type="number" id="f-km-max" placeholder="π.χ. 50000" style="width:120px">
+    </div>
+    <div class="filter-group">
+      <label>Καύσιμο</label>
+      <select id="f-fuel">
+        <option value="">Όλα</option>
+        <option value="Βενζίνη">Βενζίνη</option>
+        <option value="Υβριδικό">Υβριδικό</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Ταχύτητες</label>
+      <select id="f-transmission">
+        <option value="">Όλα</option>
+        <option value="Χειροκίνητο">Χειροκίνητο</option>
+        <option value="Αυτόματο">Αυτόματο</option>
+      </select>
+    </div>
+    <button class="btn-reset" onclick="resetFilters()">Καθαρισμός</button>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-card">
+      <h3>Τιμές ανά μοντέλο</h3>
+      <canvas id="chart-price" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Κατανομή καυσίμου</h3>
+      <canvas id="chart-fuel" height="160"></canvas>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <h3>Αγγελίες</h3>
+      <small id="showing-label"></small>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th onclick="sortBy('title')">Τίτλος</th>
+          <th onclick="sortBy('price')">Τιμή</th>
+          <th onclick="sortBy('km')">Km</th>
+          <th onclick="sortBy('bhp')">BHP</th>
+          <th onclick="sortBy('release_date')">Έτος</th>
+          <th onclick="sortBy('fueltype')">Καύσιμο</th>
+          <th onclick="sortBy('transmission')">Ταχύτητες</th>
+          <th onclick="sortBy('city')">Πόλη</th>
+          <th onclick="sortBy('score')">Score</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  let allCars = [];
+  let sortCol = 'score';
+  let sortDir = 1;
+
+  function computeScore(car) {
+    if (!car.price || !car.km) return null;
+    // Χαμηλή τιμή = καλό, χαμηλά km = καλό (penalty για >70k), υψηλή ιπποδύναμη = καλό
+    const priceScore = Math.max(0, 50 - ((car.price - 10000) / 7500) * 50);
+    const kmScore    = 40 - (car.km / 70000) * 60; // αρνητικό για >70k km
+    const bhpScore   = Math.min(10, Math.max(0, ((car.bhp || 70) - 60) / 5));
+    return Math.max(0, Math.round(priceScore + kmScore + bhpScore));
+  }
+
+  function scoreBadge(score) {
+    if (score === null) return '<span class="null-val">—</span>';
+    const cls = score >= 90 ? 'score-high' : score >= 70 ? 'score-mid' : 'score-low';
+    return `<span class="score-badge ${cls}">${score}</span>`;
+  }
+
+  function val(v) {
+    return v !== null && v !== undefined ? v : '<span class="null-val">—</span>';
+  }
+
+  function renderTable(cars) {
+    const tbody = document.getElementById('table-body');
+    document.getElementById('showing-label').textContent = `${cars.length} αγγελίες`;
+    tbody.innerHTML = cars.map(c => `
+      <tr>
+        <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.title}">${c.title.replace('Car.gr - ', '')}</td>
+        <td class="price">${c.price ? c.price.toLocaleString('el-GR') + ' €' : '<span class="null-val">—</span>'}</td>
+        <td>${c.km ? c.km.toLocaleString('el-GR') : '<span class="null-val">—</span>'}</td>
+        <td>${val(c.bhp)}</td>
+        <td>${val(c.release_date)}</td>
+        <td>${val(c.fueltype)}</td>
+        <td>${val(c.transmission)}</td>
+        <td>${val(c.city ? c.city.split(' ')[0] : null)}</td>
+        <td>${scoreBadge(c.score)}</td>
+        <td><a class="link-btn" href="${c.url}" target="_blank">car.gr ↗</a></td>
+      </tr>
+    `).join('');
+  }
+
+  function getFiltered() {
+    const search = document.getElementById('f-search').value.toLowerCase();
+    const priceMax = parseFloat(document.getElementById('f-price-max').value) || Infinity;
+    const kmMax = parseFloat(document.getElementById('f-km-max').value) || Infinity;
+    const fuel = document.getElementById('f-fuel').value;
+    const trans = document.getElementById('f-transmission').value;
+
+    return allCars.filter(c => {
+      if (search && !c.title.toLowerCase().includes(search) && !(c.city||'').toLowerCase().includes(search)) return false;
+      if (c.price && c.price > priceMax) return false;
+      if (c.km && c.km > kmMax) return false;
+      if (fuel && !(c.fueltype||'').includes(fuel)) return false;
+      if (trans && c.transmission !== trans) return false;
+      return true;
+    });
+  }
+
+  function applyFilters() {
+    const filtered = getFiltered();
+    const sorted = sortCars(filtered);
+    renderTable(sorted);
+    updateCharts(filtered);
+  }
+
+  function sortCars(cars) {
+    return [...cars].sort((a, b) => {
+      let va = a[sortCol], vb = b[sortCol];
+      if (va === null || va === undefined) return 1;
+      if (vb === null || vb === undefined) return -1;
+      return va < vb ? sortDir : va > vb ? -sortDir : 0;
+    });
+  }
+
+  function sortBy(col) {
+    if (sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = -1; }
+    document.querySelectorAll('th').forEach(th => {
+      th.classList.remove('sorted-asc', 'sorted-desc');
+    });
+    event.target.classList.add(sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
+    applyFilters();
+  }
+
+  function resetFilters() {
+    document.getElementById('f-search').value = '';
+    document.getElementById('f-price-max').value = '';
+    document.getElementById('f-km-max').value = '';
+    document.getElementById('f-fuel').value = '';
+    document.getElementById('f-transmission').value = '';
+    applyFilters();
+  }
+
+  // Charts
+  let chartPrice, chartFuel;
+
+  function updateCharts(cars) {
+    // Τιμές ανά μοντέλο
+    const models = {};
+    cars.forEach(c => {
+      if (!c.price) return;
+      const model = c.title.replace('Car.gr - ', '').split(' ').slice(0,3).join(' ');
+      if (!models[model]) models[model] = [];
+      models[model].push(c.price);
+    });
+    const modelLabels = Object.keys(models);
+    const modelAvgs = modelLabels.map(m => Math.round(models[m].reduce((a,b)=>a+b,0)/models[m].length));
+
+    chartPrice.data.labels = modelLabels;
+    chartPrice.data.datasets[0].data = modelAvgs;
+    chartPrice.update();
+
+    // Καύσιμο
+    const fuels = {};
+    cars.forEach(c => { const f = c.fueltype || 'Άγνωστο'; fuels[f] = (fuels[f]||0)+1; });
+    chartFuel.data.labels = Object.keys(fuels);
+    chartFuel.data.datasets[0].data = Object.values(fuels);
+    chartFuel.update();
+  }
+
+  function initCharts() {
+    chartPrice = new Chart(document.getElementById('chart-price'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ label: 'Μέση τιμή (€)', data: [], backgroundColor: '#1a1a2e' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false } }, responsive: true }
+    });
+    chartFuel = new Chart(document.getElementById('chart-fuel'), {
+      type: 'doughnut',
+      data: { labels: [], datasets: [{ data: [], backgroundColor: ['#1a1a2e','#e94560','#4ecdc4','#aaa'] }] },
+      options: { responsive: true }
+    });
+  }
+
+  // Init
+  initCharts();
+  fetch('/api/db/cars')
+    .then(r => r.json())
+    .then(data => {
+      allCars = data.map(c => ({ ...c, score: computeScore(c) }));
+      document.getElementById('total-badge').textContent = `${allCars.length} αγγελίες`;
+      applyFilters();
+    });
+
+  document.getElementById('f-search').addEventListener('input', applyFilters);
+  document.getElementById('f-price-max').addEventListener('input', applyFilters);
+  document.getElementById('f-km-max').addEventListener('input', applyFilters);
+  document.getElementById('f-fuel').addEventListener('change', applyFilters);
+  document.getElementById('f-transmission').addEventListener('change', applyFilters);
+</script>
+</body>
+</html>
